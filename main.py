@@ -7,11 +7,11 @@ from llm import LLMResponse, ScriptedLLM, ToolCall
 from agent import Agent
 
 
-def read_file(file_path: str) -> str:
-    path = Path(file_path)
-    if not path.exists():
-        return f"文件 {file_path} 不存在。"
-    return path.read_text(encoding="utf-8")
+# def read_file(file_path: str) -> str:
+#     path = Path(file_path)
+#     if not path.exists():
+#         return f"文件 {file_path} 不存在。"
+#     return path.read_text(encoding="utf-8")
 
 def main():
     script = [
@@ -28,7 +28,7 @@ def main():
         LLMResponse(content="这个文件会输出 hello, world!")
     ]
 
-    agent = Agent(ScriptedLLM(script), tools={"read_file": read_file})
+    agent = Agent(ScriptedLLM(script))
 
     def show_tool(name, args):
         print(f"工具 {name} 被调用，参数: {args}")

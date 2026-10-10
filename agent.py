@@ -1,16 +1,22 @@
 
+import inspect
 from re import S
 from unittest import result
 
 from llm import ToolCall
+from tools import ALL_TOOLS
 
 class Agent:
     
     def __init__(self,llm,tools=None,max_rounds: int = 10):
         self.llm = llm
         # tools 是普通函数字典：{"read_file": 某个函数}
-        # 阶段 2 会换成工具对象列表。这里先用函数，让循环先跑起来。
-        self.tools = tools or []
+        if tools is None:
+            
+            tools = ALL_TOOLS
+
+        self.tools = tools 
+        self._tool_by_name = {t.name: t for t in tools}
         self.messages: list[dict] = []
         self.max_rounds = max_rounds
 
@@ -20,6 +26,7 @@ class Agent:
         for _ in range(self.max_rounds):
             resp = self.llm.chat(
                 self.messages,
+                tools = self._tool_schemas(),
                 on_token=on_token,
                 on_reasoning=on_reasoning,
             )
@@ -44,11 +51,20 @@ class Agent:
 
         raise RuntimeError(f"Agent: 对话超过最大轮数 {self.max_rounds} 轮，仍然没有得到模型回复。")
     
-    def _exec(self, tc: ToolCall) -> str:
-        fn = self.tools.get(tc.name)
-        if fn is None:
-            return f"工具 {tc.name} 不存在。"
+    def _tool_schemas(self) -> list[dict]:
+        return [t.schema() for t in self.tools]
+
+    def _exec(self, tc) -> str:
+        tool = self._tool_by_name.get(tc.name)
+        if tool is None:
+            return f"Error: unknown tool '{tc.name}'"
         try:
-            return fn(**tc.arguments)
+            inspect.signature(tool.execute).bind(**tc.arguments)
+        except TypeError as e:
+            return f"Error: bad arguments for {tc.name}: {e}"
+        try:
+            return tool.execute(**tc.arguments)
+        except TypeError as e:
+            return f"Error: bad arguments for {tc.name}: {e}"
         except Exception as e:
-            return f"工具 {tc.name} 执行失败: {e}"
+            return f"Error executing {tc.name}: {e}"
