@@ -1,9 +1,11 @@
 
 
+import os
 from pathlib import Path
 
 import agent
-from llm import LLMResponse, ScriptedLLM, ToolCall
+from config import Config
+from llm import LLM, LLMResponse, ScriptedLLM, ToolCall
 from agent import Agent
 
 
@@ -13,7 +15,7 @@ from agent import Agent
 #         return f"文件 {file_path} 不存在。"
 #     return path.read_text(encoding="utf-8")
 
-def main():
+def run_demo():
     script = [
         LLMResponse(
             content="",
@@ -28,16 +30,33 @@ def main():
         LLMResponse(content="这个文件会输出 hello, world!")
     ]
 
-    agent = Agent(ScriptedLLM(script))
+    agent = Agent(llm=ScriptedLLM(script))
+    print(agent.chat("读一下 hello.py，用一句话说明", on_tool=lambda n, a: print(f"[tool] {n} {a}")))
 
-    def show_tool(name, args):
-        print(f"工具 {name} 被调用，参数: {args}")
+
+def main():
+    if os.getenv("MYAGENT_DEMO") == "1":
+        run_demo()
+        return
+
+    cfg = Config.from_env()
+    if not cfg.api_key:
+        print("Error: OPENAI_API_KEY is not set")
+        return
     
-    answer = agent.chat("请读取 hello.py 文件，并告诉我文件内容。", on_tool=show_tool)
-    print("[answer]", answer)
-    print("--- messages ---")
-    for m in agent.messages:
-        print(m)
+    llm = LLM(
+        model=cfg.model,
+        api_key=cfg.api_key,
+        base_url=cfg.base_url,
+        temperature=cfg.temperature,
+        max_tokens=cfg.max_tokens,
+    )
+    agent = Agent(llm=llm)
+    answer = agent.chat(
+        "读一下 hello.py，用三句话说明它做什么",
+        on_tool=lambda name, args: print(f"\n[tool] {name} {args}"),
+    )
+    print("\n[answer]", answer)
 
 if __name__ == "__main__":
     main()

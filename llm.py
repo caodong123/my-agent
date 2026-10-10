@@ -4,6 +4,8 @@ from dataclasses import dataclass, field
 import json
 from pyexpat import model
 
+from openai import OpenAI
+from openai.types.admin.organization.audit_log_list_response import UserUpdatedChangesRequested
 
 @dataclass
 class ToolCall:
@@ -62,3 +64,53 @@ class ScriptedLLM:
         if on_token and resp.content:
             on_token(resp.content)
         return resp
+
+class LLM:
+    """一个通用的 LLM 接口，可以对接不同的 LLM 模型"""
+    def __init__(
+        self,
+        model: str,
+        api_key: str,
+        base_url: str | None = None,
+        temperature: float = 0.0,
+        max_tokens: int = 4096,
+    ):
+        self.model = model
+        self.client = OpenAI(api_key=api_key, base_url=base_url)
+        self.temperature = temperature
+        self.max_tokens = max_tokens
+        self.total_prompt_tokens = 0
+        self.total_completions_tokens = 0
+
+    def chat(self, messages, tools=None, on_token=None, on_reasoning = None) -> LLMResponse:
+        kwargs = {
+            "model": self.model,
+            "messages": messages,
+            "temperature": self.temperature,
+            "max_tokens": self.max_tokens,
+        }
+        if tools:
+            kwargs["tools"] = tools
+        
+        # 使用openai api创建聊天完成
+        resp = self.client.chat.completions.create(**kwargs)
+        msg = resp.choices[0].message
+
+        calls = []
+        for tc in msg.tool_calls or []:
+            raw = tc.function.arguments or "{}"
+            try:
+                args = json.loads(raw)
+            except json.JSONDecodeError:
+                args = {}
+            calls.append(ToolCall(id=tc.id, name=tc.function.name, arguments=args))
+        
+        usage = resp.usage
+        if usage:
+            self.total_prompt_tokens += getattr(usage, "prompt_tokens", 0) or 0
+            self.total_completions_tokens += getattr(usage, "completion_tokens", 0) or 0
+        
+        text = msg.content or ""
+        if on_token and text:
+            on_token(text)
+        return LLMResponse(content=text,tool_calls=calls)
