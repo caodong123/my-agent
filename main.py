@@ -51,12 +51,24 @@ def main():
         temperature=cfg.temperature,
         max_tokens=cfg.max_tokens,
     )
+    
     agent = Agent(llm=llm)
-    answer = agent.chat(
-        "读一下 hello.py，用三句话说明它做什么",
-        on_tool=lambda name, args: print(f"\n[tool] {name} {args}"),
-    )
-    print("\n[answer]", answer)
+    print("连续对话已开始。输入 quit 或 exit 结束。")
+    while True:
+        try:
+            line = input("You > ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            break
+        if not line:
+            continue
+        if line.lower() in ("quit", "exit"):
+            break
+        answer = agent.chat(
+            line,
+            on_tool=lambda name, args: print(f"\n[tool] {name} {args}"),
+        )
+        print("\n[answer]", answer)
 
 if __name__ == "__main__":
     main()
