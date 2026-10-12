@@ -4,10 +4,9 @@ from re import S
 from unittest import result
 
 from llm import ToolCall
+from prompt import System_Prompt
 from tools import ALL_TOOLS
 
-SYSTEM_PROMPT = """你是一个代码助手，通过调用工具完成用户的任务。用中文回答。
-"""
 
 class Agent:
     
@@ -27,12 +26,8 @@ class Agent:
         self.messages.append({"role": "user", "content": user_input})
 
         for _ in range(self.max_rounds):
-            messages = [
-                {"role": "system", "content": SYSTEM_PROMPT},
-                *self.messages,
-            ]
             resp = self.llm.chat(
-                messages,
+                self.full_messages(),
                 tools=self._tool_schemas(),
                 on_token=on_token,
                 on_reasoning=on_reasoning,
@@ -60,6 +55,13 @@ class Agent:
     
     def _tool_schemas(self) -> list[dict]:
         return [t.schema() for t in self.tools]
+    
+    def full_messages(self) -> list[dict]:
+        # 新列表 = 系统提示 + 历史对话
+        return [
+            {"role": "system", "content": System_Prompt(self.tools)},
+            *self.messages,
+        ]
 
     def _exec(self, tc) -> str:
         tool = self._tool_by_name.get(tc.name)
