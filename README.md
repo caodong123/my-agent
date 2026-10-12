@@ -1,6 +1,6 @@
 # my-agent
 
-一个从零手写的简易 Coding Agent。实现顺序跟 `document/Agent开发指南-grok.md` 走。当前停在阶段 4：模型可以读文件，也可以新建、覆盖和按唯一原文修改文件。改文件前还不会询问，那是下一阶段的事。回复仍是一次拿回整段，没有流式输出。
+一个从零手写的简易 Coding Agent。实现顺序跟 `document/Agent开发指南-grok.md` 走。当前停在阶段 5：模型可以读文件，也可以新建、覆盖和按唯一原文修改文件。`write_file` 和 `edit_file` 执行前会先询问。回复仍是一次拿回整段，没有流式输出。
 
 模型只负责产出文字，以及「请调用某个工具」的结构化数据。读文件和改文件由本地 Python 完成。一次调用在历史里是四条消息：
 
@@ -41,6 +41,8 @@ python main.py
 
 可以让它读取 `hello.py`，或把其中的文字改成别的内容。小改动应走 `edit_file`，原文必须在文件里恰好出现一次；新建或整文件覆盖走 `write_file`。终端会打印 `[tool]` 和它调用的参数。
 
+`read_file` 直接执行。`write_file` 和 `edit_file` 会停下来问一句：输入 `y` 允许这一次，输入 `a` 以后都允许这个工具，输入其他内容则拒绝。拒绝会变成一条 `Permission denied` 的工具结果交给模型，文件不会被修改。选择 `a` 之后，工具名写入当前目录的 `permission.json`，下次启动仍然有效。
+
 不接网络、沿用假模型剧本时：
 
 ```powershell
@@ -55,10 +57,11 @@ python main.py
 | `config.py` | 从环境变量和 `.env` 读取模型、密钥和地址 |
 | `llm.py` | 假模型 `ScriptedLLM`，以及调用 OpenAI 兼容接口的 `LLM` |
 | `prompt.py` | 生成系统提示词：环境信息、工具列表和修改规则 |
-| `agent.py` | 主循环。`full_messages()` 在历史前临时拼上系统提示词 |
+| `permission.py` | 只读工具直接放行；改文件前询问。`None` 表示允许，字符串表示拒绝理由 |
+| `agent.py` | 主循环。执行工具前先过权限；`full_messages()` 在历史前临时拼上系统提示词 |
 | `main.py` | 有密钥进入连续对话；`MYAGENT_DEMO=1` 走假模型 |
 | `hello.py` | 给演示读取和修改的示例文件 |
 | `tools/` | `read_file` 按行号读文件；`write_file` 整文件写入；`edit_file` 替换唯一原文并返回 diff |
 | `document/` | 两份开发指南，实现时以 Grok 那份为准 |
 
-密钥、`.env` 和虚拟环境不进仓库。`.gitignore` 已经排除了 `.venv/`、`__pycache__/`、`*.pyc` 和 `.env`。
+密钥、`.env`、允许名单和虚拟环境不进仓库。`.gitignore` 已经排除了 `.venv/`、`__pycache__/`、`*.pyc`、`.env` 和 `permission.json`。

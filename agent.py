@@ -10,7 +10,7 @@ from tools import ALL_TOOLS
 
 class Agent:
     
-    def __init__(self,llm,tools=None,max_rounds: int = 10):
+    def __init__(self,llm,tools=None,max_rounds: int = 10, permission = None):
         self.llm = llm
         # tools 是普通函数字典：{"read_file": 某个函数}
         if tools is None:
@@ -21,6 +21,7 @@ class Agent:
         self._tool_by_name = {t.name: t for t in tools}
         self.messages: list[dict] = []
         self.max_rounds = max_rounds
+        self.permission = permission
 
     def chat(self, user_input:str, on_tool=None, on_token=None, on_reasoning=None) -> str:
         self.messages.append({"role": "user", "content": user_input})
@@ -44,14 +45,20 @@ class Agent:
             for tc in resp.tool_calls:
                 if on_tool:
                     on_tool(tc.name, tc.arguments)
-                result = self._exec(tc)
+                result = self._permit(tc)
+                if result is None:
+                    result = self._exec(tc)
                 self.messages.append({
                     "role": "tool",
                     "tool_call_id": tc.id,
                     "content": result,
                 })
-
         raise RuntimeError(f"Agent: 对话超过最大轮数 {self.max_rounds} 轮，仍然没有得到模型回复。")
+    
+    def _permit(self, tc: ToolCall) -> str | None:
+        if self.permission is None:
+            return None
+        return self.permission.check(tc.name, tc.arguments)
     
     def _tool_schemas(self) -> list[dict]:
         return [t.schema() for t in self.tools]
