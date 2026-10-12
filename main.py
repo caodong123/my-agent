@@ -79,8 +79,15 @@ def main():
         answer = agent.chat(
             line,
             on_tool=lambda name, args: print(f"\n[tool] {name} {args}"),
+            on_token=lambda text: print(text, end="", flush=True),
         )
-        print("\n[answer]", answer)
+        # print("\n[answer]", answer)
+        print(
+            f"\n[usage] in={llm.total_prompt_tokens} "
+            f"out={llm.total_completions_tokens} "
+            f"cost={llm.estimated_cost}"
+        )
+    
 
 if __name__ == "__main__":
     main()
