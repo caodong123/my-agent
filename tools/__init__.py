@@ -1,4 +1,5 @@
 
+from tools.bash import BashTool
 from tools.edit import EditFileTool
 from tools.glob_tool import GlobTool
 from tools.read import ReadFileTool
@@ -13,4 +14,5 @@ ALL_TOOLS = [
     EditFileTool(),
     GlobTool(),
     GrepTool(),
+    BashTool(),
 ]

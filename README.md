@@ -1,8 +1,8 @@
 # my-agent
 
-一个从零手写的简易 Coding Agent。实现顺序跟 `document/Agent开发指南-grok.md` 走。当前停在阶段 6：模型可以按文件名和文件内容自己查找，也可以读文件、新建、覆盖和按唯一原文修改文件。`write_file` 和 `edit_file` 执行前会先询问。回复仍是一次拿回整段，没有流式输出。
+一个从零手写的简易 Coding Agent。实现顺序跟 `document/Agent开发指南-grok.md` 走。当前停在阶段 7：模型可以查找、读取和修改文件，也可以运行命令。`write_file`、`edit_file` 和 `bash` 执行前会先询问。回复仍是一次拿回整段，没有流式输出。
 
-模型只负责产出文字，以及「请调用某个工具」的结构化数据。读文件和改文件由本地 Python 完成。一次调用在历史里是四条消息：
+模型只负责产出文字，以及「请调用某个工具」的结构化数据。读文件、改文件和跑命令由本地 Python 完成。一次调用在历史里是四条消息：
 
 ```text
 user        用户的话
@@ -43,7 +43,9 @@ python main.py
 
 `read_file`、`glob`、`grep` 直接执行。`glob` 按通配符找文件，例如 `**/*.py`，最近修改的排在前面。`grep` 用正则搜文件内容，返回路径、行号和那一行。两者都会跳过 `.git`、`.venv`、`__pycache__` 等目录，结果过多时会截断。
 
-`write_file` 和 `edit_file` 会停下来问一句：输入 `y` 允许这一次，输入 `a` 以后都允许这个工具，输入其他内容则拒绝。拒绝会变成一条 `Permission denied` 的工具结果交给模型，文件不会被修改。选择 `a` 之后，工具名写入当前目录的 `permission.json`，下次启动仍然有效。
+`write_file`、`edit_file` 和 `bash` 会停下来问一句：输入 `y` 允许这一次，输入 `a` 以后都允许这个工具，输入其他内容则拒绝。拒绝会变成一条 `Permission denied` 的工具结果交给模型，文件不会被修改，命令也不会执行。选择 `a` 之后，工具名写入当前目录的 `permission.json`，下次启动仍然有效。
+
+`bash` 在 Windows 上优先使用 Git Bash。它返回标准输出、标准错误和退出码，默认 120 秒超时，过长的输出会截断。递归删除家目录、格式化磁盘这类命令会在执行前被拦住。这份名单不是沙箱，挡不住换一种写法。
 
 不接网络、沿用假模型剧本时：
 
@@ -59,11 +61,11 @@ python main.py
 | `config.py` | 从环境变量和 `.env` 读取模型、密钥和地址 |
 | `llm.py` | 假模型 `ScriptedLLM`，以及调用 OpenAI 兼容接口的 `LLM` |
 | `prompt.py` | 生成系统提示词：环境信息、工具列表和修改规则 |
-| `permission.py` | 只读工具直接放行；改文件前询问。`None` 表示允许，字符串表示拒绝理由 |
+| `permission.py` | 只读工具直接放行；改文件和运行命令前询问。`None` 表示允许，字符串表示拒绝理由 |
 | `agent.py` | 主循环。执行工具前先过权限；`full_messages()` 在历史前临时拼上系统提示词 |
 | `main.py` | 有密钥进入连续对话；`MYAGENT_DEMO=1` 走假模型 |
 | `hello.py` | 给演示读取和修改的示例文件 |
-| `tools/` | `read_file` 按行号读文件；`glob` 按通配符找文件；`grep` 按正则搜内容；`write_file` 整文件写入；`edit_file` 替换唯一原文并返回 diff |
+| `tools/` | `read_file` 按行号读文件；`glob` 按通配符找文件；`grep` 按正则搜内容；`write_file` 整文件写入；`edit_file` 替换唯一原文并返回 diff；`bash` 运行命令 |
 | `document/` | 两份开发指南，实现时以 Grok 那份为准 |
 
 密钥、`.env`、允许名单和虚拟环境不进仓库。`.gitignore` 已经排除了 `.venv/`、`__pycache__/`、`*.pyc`、`.env` 和 `permission.json`。
