@@ -3,6 +3,7 @@ import inspect
 from re import S
 from unittest import result
 
+from context import ContextManager
 from llm import ToolCall
 from prompt import System_Prompt
 from tools import ALL_TOOLS
@@ -10,7 +11,7 @@ from tools import ALL_TOOLS
 
 class Agent:
     
-    def __init__(self,llm,tools=None,max_rounds: int = 10, permission = None):
+    def __init__(self,llm,tools=None,max_rounds: int = 10, permission = None, max_context_tokens:int = 128_000):
         self.llm = llm
         # tools 是普通函数字典：{"read_file": 某个函数}
         if tools is None:
@@ -23,8 +24,11 @@ class Agent:
         self.max_rounds = max_rounds
         self.permission = permission
 
+        self.context = ContextManager(max_tokens = max_context_tokens)
+
     def chat(self, user_input:str, on_tool=None, on_token=None, on_reasoning=None) -> str:
         self.messages.append({"role": "user", "content": user_input})
+        self.context.maybe_compress(self.messages, self.llm)
 
         for _ in range(self.max_rounds):
             resp = self.llm.chat(
@@ -53,6 +57,7 @@ class Agent:
                     "tool_call_id": tc.id,
                     "content": result,
                 })
+                self.context.maybe_compress(self.messages, self.llm)
         raise RuntimeError(f"Agent: 对话超过最大轮数 {self.max_rounds} 轮，仍然没有得到模型回复。")
     
     def _permit(self, tc: ToolCall) -> str | None:
