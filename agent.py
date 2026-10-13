@@ -44,22 +44,43 @@ class Agent:
             # 如果模型没要求调用工具，就结束。
             if not resp.tool_calls:
                 return resp.content
-            
-            # 如果模型要求调用工具，就调用工具。
-            for tc in resp.tool_calls:
-                if on_tool:
-                    on_tool(tc.name, tc.arguments)
-                result = self._permit(tc)
-                if result is None:
-                    result = self._exec(tc)
+            try:
+                # 如果模型要求调用工具，就调用工具。
+                for tc in resp.tool_calls:
+                    if on_tool:
+                        on_tool(tc.name, tc.arguments)
+                    result = self._permit(tc)
+                    if result is None:
+                        result = self._exec(tc)
+                    self.messages.append({
+                        "role": "tool",
+                        "tool_call_id": tc.id,
+                        "content": result,
+                    })
+                    self.context.maybe_compress(self.messages, self.llm)
+            except KeyboardInterrupt:
+                # 如果用户 Ctrl+C，则回答 pending 的工具调用。
+                self._answer_pending(resp.tool_calls)
+                raise
+        raise RuntimeError(f"Agent: 对话超过最大轮数 {self.max_rounds} 轮，仍然没有得到模型回复。")
+    
+    def _answer_pending(self, tool_calls: list[ToolCall]) -> None:
+        answered = {
+            m.get("tool_call_id")
+            for m in self.messages
+            if m.get("role") == "tool"
+        }
+
+        for tc in tool_calls:
+            if tc.id not in answered:
+                # 如果工具调用没有被回答，则回答它。
                 self.messages.append({
                     "role": "tool",
                     "tool_call_id": tc.id,
-                    "content": result,
+                    "content": "Tool execution interrupted by user.",
                 })
-                self.context.maybe_compress(self.messages, self.llm)
-        raise RuntimeError(f"Agent: 对话超过最大轮数 {self.max_rounds} 轮，仍然没有得到模型回复。")
-    
+
+
     def _permit(self, tc: ToolCall) -> str | None:
         if self.permission is None:
             return None
