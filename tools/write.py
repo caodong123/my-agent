@@ -2,7 +2,7 @@
 
 from os import path
 from pathlib import Path
-from tools.base import Tool
+from tools.base import FILE_MUTATION_LOCK, Tool
 
 
 class WriteFileTool(Tool):
@@ -22,10 +22,11 @@ class WriteFileTool(Tool):
 
     def execute(self, file_path: str, content: str) -> str:
         try:
-            path = Path(file_path).expanduser().resolve()
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(content, encoding="utf-8")
-            n_lines = content.count("\n") + (0 if content.endswith("\n") else 1)
+            with FILE_MUTATION_LOCK:
+                path = Path(file_path).expanduser().resolve()
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(content, encoding="utf-8")
+                n_lines = content.count("\n") + (0 if content.endswith("\n") else 1)
             return f"File {path} written with {n_lines} lines."
         except Exception as e:
             return f"Error writing file {file_path}: {e}"

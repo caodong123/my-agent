@@ -62,7 +62,7 @@ def repl(agent: Agent):
             print("/help  /reset  /tokens  /save  /sessions  quit")
             continue
         if line == "/reset":
-            agent.messages.clear()
+            agent.reset()
             print("history cleared")
             continue
         if line == "/tokens":

@@ -1,16 +1,29 @@
 
 
-# 先放在模块级变量里。阶段 11 并发之后要改成「每个线程一份」，否则两条命令会抢同一个目录。
 from cgitb import text
 import encodings
 import os
 import re
 import subprocess
+import threading
 from tools.base import Tool
 from tools.shell_Util import run_shell
 
 
-_cwd: str | None = None
+# 每个线程一份当前目录，并发时两条命令不会抢同一个路径。
+_local = threading.local()
+
+
+def get_cwd():
+    return getattr(_local, "cwd", None)
+
+
+def set_cwd(path):
+    if path is None:
+        if hasattr(_local, "cwd"):
+            delattr(_local, "cwd")
+    else:
+        _local.cwd = path
 
 _DANGEROUS = [
     (r"\brm\s+(-\w*)?-r\w*\s+(/|~|\$HOME)", "recursive delete on home or root"),
@@ -42,8 +55,7 @@ class BashTool(Tool):
         if reason:
             return f"Error: dangerous command: {command}. {reason}"
         
-        global _cwd
-        cwd = _cwd or os.getcwd()
+        cwd = get_cwd() or os.getcwd()
         try:
             proc = run_shell(
                 command=command,
@@ -60,7 +72,7 @@ class BashTool(Tool):
             return f"Error: command failed: {command}. {e}"
         
         if proc.returncode == 0:
-            _cwd = _track_cd(command,cwd)
+            set_cwd(_track_cd(command, cwd))
         
         out = proc.stdout or ""
         if proc.stderr:
@@ -81,13 +93,13 @@ def _track_cd(command: str, cwd: str) -> str:
     """只跟踪一条以 cd 开头、或用 && / ; 串起来的 cd。够用即可。"""
     current = cwd
     # 用 && 和 ; 切开。引号里的分隔符这里先不处理，成品见 corecoder/tools/bash.py
-    for part in re.split(r"&&|;",command):
+    for part in re.split(r"&&|;", command):
         words = part.strip().split()
         if not words or words[0] != "cd":
             continue
-    target = words[1] if len(words) > 1 else "~"
-    target = os.path.expanduser(target)
-    new_dir = target if os.path.isabs(target) else os.path.normpath(os.path.join(current,target))
-    if os.path.isdir(new_dir):
-        current = new_dir
-        
+        target = words[1] if len(words) > 1 else "~"
+        target = os.path.expanduser(target)
+        new_dir = target if os.path.isabs(target) else os.path.normpath(os.path.join(current, target))
+        if os.path.isdir(new_dir):
+            current = new_dir
+    return current

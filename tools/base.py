@@ -1,4 +1,9 @@
 """工具基类"""
+
+import threading
+
+FILE_MUTATION_LOCK = threading.Lock()
+
 class Tool:
     name: str
     description: str
