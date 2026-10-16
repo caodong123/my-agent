@@ -108,6 +108,6 @@ python main.py
 | `main.py` | 阶段 9 的连续对话；`MYAGENT_DEMO=1` 或 `python cli.py --demo` 走假模型 |
 | `hello.py` | 给演示读取和修改的示例文件 |
 | `tools/` | `read_file` 按行号读文件；`glob` 按通配符找文件；`grep` 按正则搜内容；`write_file` 整文件写入；`edit_file` 替换唯一原文并返回 diff；`bash` 运行命令；`todo_write` 替换整份任务清单；`agent` 派一个不能再往下派的子 Agent |
-| `document/` | 两份开发指南，实现时以 Grok 那份为准 |
+| `document/` | 开发指南 `Agent开发指南-grok.md` |
 
 密钥、`.env`、允许名单、会话记录和虚拟环境不进仓库。`.gitignore` 已经排除了 `.venv/`、`__pycache__/`、`*.pyc`、`.env`、`permission.json` 和 `sessions/`。
